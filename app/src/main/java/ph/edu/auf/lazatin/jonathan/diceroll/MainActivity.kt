@@ -94,7 +94,13 @@ fun DiceRoller(modifier: Modifier = Modifier) {
         DiceGrid(diceValues, rollCount)
         Spacer(modifier = Modifier.height(16.dp))
         RollButton {
-            diceValues = List(6) { Dice(Random.nextInt(1, 7)) }
+            diceValues = diceValues.map { dice ->
+                var newValue: Int
+                do {
+                    newValue = Random.nextInt(1, 7)
+                } while (newValue == dice.value)
+                Dice(newValue)
+            }
             rollTrigger = !rollTrigger
             rollCount++
         }
