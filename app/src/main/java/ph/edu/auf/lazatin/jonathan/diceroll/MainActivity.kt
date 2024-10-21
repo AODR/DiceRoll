@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
@@ -15,6 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -62,7 +64,8 @@ fun evaluateDiceResult(diceValues: List<Dice>): String {
         counts.containsValue(5) -> "Five of a Kind"
         counts.containsValue(4) -> "Four of a Kind"
         counts.containsValue(3) && counts.containsValue(2) -> "Full House"
-        counts.containsValue(3) -> "Three of a Kind"
+        counts.containsValue(3) -> "Three of a kind"
+        counts.filterValues { it == 2 }.size == 3 -> "Three Pairs"
         counts.filterValues { it == 2 }.size == 2 -> "Two Pairs"
         counts.containsValue(2) -> "One Pair"
         else -> "No matches"
@@ -73,13 +76,12 @@ fun evaluateDiceResult(diceValues: List<Dice>): String {
 fun DiceRoller(modifier: Modifier = Modifier) {
     var diceValues by remember { mutableStateOf(List(6) { Dice(Random.nextInt(1, 7)) }) }
     var rollTrigger by remember { mutableStateOf(false) }
-    var showResult by remember { mutableStateOf(false) }
-    val result = evaluateDiceResult(diceValues)
+    var result by remember { mutableStateOf("") }
+    var rollCount by remember { mutableStateOf(0) }
 
     LaunchedEffect(rollTrigger) {
-        showResult = false
-        delay(600) // Delay for the duration of the dice roll animation
-        showResult = true
+        delay(600)
+        result = evaluateDiceResult(diceValues)
     }
 
     Column(
@@ -87,36 +89,40 @@ fun DiceRoller(modifier: Modifier = Modifier) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        if (showResult) {
-            Text(result, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(16.dp))
-        }
-        DiceGrid(diceValues, rollTrigger)
+        Text(result, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+        Spacer(modifier = Modifier.height(16.dp))
+        DiceGrid(diceValues, rollCount)
         Spacer(modifier = Modifier.height(16.dp))
         RollButton {
             diceValues = List(6) { Dice(Random.nextInt(1, 7)) }
             rollTrigger = !rollTrigger
+            rollCount++
         }
     }
 }
 
 @Composable
-fun DiceGrid(diceValues: List<Dice>, rollTrigger: Boolean) {
+fun DiceGrid(diceValues: List<Dice>, rollCount: Int) {
     for (i in 0 until 2) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             for (j in 0 until 3) {
                 val dice = diceValues[i * 3 + j]
-                // Animate the dice value change
-                val animatedValue by animateIntAsState(
-                    targetValue = if (rollTrigger) dice.value else dice.value,
-                    animationSpec = tween(durationMillis = 600)
+                val animatedValue by animateFloatAsState(
+                    targetValue = dice.value.toFloat(),
+                    animationSpec = tween(durationMillis = 1000),
+                    label = "dice_${i * 3 + j}_${rollCount}"
                 )
                 Image(
-                    painter = painterResource(id = getDiceImageResource(animatedValue)),
-                    contentDescription = "Dice $animatedValue",
-                    modifier = Modifier.size(100.dp)
+                    painter = painterResource(id = getDiceImageResource(animatedValue.toInt())),
+                    contentDescription = "Dice ${animatedValue.toInt()}",
+                    modifier = Modifier
+                        .size(100.dp)
+                        .graphicsLayer(
+                            rotationX = animatedValue * 360,
+                            rotationY = animatedValue * 360
+                        )
                 )
             }
         }
@@ -128,13 +134,5 @@ fun DiceGrid(diceValues: List<Dice>, rollTrigger: Boolean) {
 fun RollButton(onClick: () -> Unit) {
     Button(onClick = onClick) {
         BasicText("Roll Dice")
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun DiceRollerPreview() {
-    DiceRollTheme {
-        DiceRoller()
     }
 }
