@@ -5,7 +5,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
@@ -19,7 +18,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
@@ -75,13 +73,29 @@ fun evaluateDiceResult(diceValues: List<Dice>): String {
 @Composable
 fun DiceRoller(modifier: Modifier = Modifier) {
     var diceValues by remember { mutableStateOf(List(6) { Dice(Random.nextInt(1, 7)) }) }
-    var rollTrigger by remember { mutableStateOf(false) }
     var result by remember { mutableStateOf("") }
     var rollCount by remember { mutableStateOf(0) }
+    var isAnimating by remember { mutableStateOf(false) }
 
-    LaunchedEffect(rollCount) {
-        delay(1000) // Wait for the animation to complete
-        result = evaluateDiceResult(diceValues)
+    // Randomize the dice values during the animation
+    LaunchedEffect(isAnimating) {
+        if (isAnimating) {
+            // Keep randomizing while animation is running
+            val animationDuration = 1000L
+            val randomizationInterval = 100L
+            val animationEndTime = System.currentTimeMillis() + animationDuration
+
+            while (System.currentTimeMillis() < animationEndTime) {
+                diceValues = diceValues.map {
+                    Dice(Random.nextInt(1, 7))
+                }
+                delay(randomizationInterval) // Delay between dice value updates
+            }
+
+            // Stop randomizing when the animation ends
+            isAnimating = false
+            result = evaluateDiceResult(diceValues)
+        }
     }
 
     Column(
@@ -91,43 +105,38 @@ fun DiceRoller(modifier: Modifier = Modifier) {
     ) {
         Text(result, fontSize = 24.sp, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(16.dp))
-        DiceGrid(diceValues, rollCount)
+        DiceGrid(diceValues, isAnimating)
         Spacer(modifier = Modifier.height(16.dp))
         RollButton {
-            diceValues = diceValues.map { dice ->
-                var newValue: Int
-                do {
-                    newValue = Random.nextInt(1, 7)
-                } while (newValue == dice.value)
-                Dice(newValue)
+            if (!isAnimating) {
+                isAnimating = true // Start the animation and randomization
+                rollCount++  // Trigger a new roll
             }
-            rollTrigger = !rollTrigger
-            rollCount++
         }
     }
 }
 
 @Composable
-fun DiceGrid(diceValues: List<Dice>, rollCount: Int) {
+fun DiceGrid(diceValues: List<Dice>, isAnimating: Boolean) {
     for (i in 0 until 2) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             for (j in 0 until 3) {
                 val dice = diceValues[i * 3 + j]
-                val animatedValue by animateFloatAsState(
-                    targetValue = dice.value.toFloat(),
-                    animationSpec = tween(durationMillis = 1000),
-                    label = "dice_${i * 3 + j}_${rollCount}"
+                val rotation by animateFloatAsState(
+                    targetValue = if (isAnimating) 360f else 0f,
+                    animationSpec = if (isAnimating) tween(durationMillis = 1500) else tween(0),
+                    label = "rotation_${i * 3 + j}_${dice.value}"
                 )
                 Image(
-                    painter = painterResource(id = getDiceImageResource(animatedValue.toInt())),
-                    contentDescription = "Dice ${animatedValue.toInt()}",
+                    painter = painterResource(id = getDiceImageResource(dice.value)),
+                    contentDescription = "Dice ${dice.value}",
                     modifier = Modifier
                         .size(100.dp)
                         .graphicsLayer(
-                            rotationX = animatedValue * 360,
-                            rotationY = animatedValue * 360
+                            rotationX = rotation,
+                            rotationY = rotation
                         )
                 )
             }
