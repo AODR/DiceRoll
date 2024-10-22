@@ -79,8 +79,8 @@ fun DiceRoller(modifier: Modifier = Modifier) {
     var result by remember { mutableStateOf("") }
     var rollCount by remember { mutableStateOf(0) }
 
-    LaunchedEffect(rollTrigger) {
-        delay(600)
+    LaunchedEffect(rollCount) {
+        delay(1000) // Wait for the animation to complete
         result = evaluateDiceResult(diceValues)
     }
 
